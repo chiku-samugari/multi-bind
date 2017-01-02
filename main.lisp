@@ -33,3 +33,17 @@
                (:META ((:ID . 5) (:TYPE . "node") (:DELETED)))))))
          (:ERRORS))
        (values column-names data))
+
+(defmacro mvbind1 (low-line-lambda-list1 expression &body body)
+  (multiple-value-bind (lambda-list sealed-vars)
+    (proc-sealed-lambda-list '_ low-line-lambda-list1)
+    `(multiple-value-bind ,lambda-list
+       ,expression
+       (declare (ignore ,@sealed-vars))
+       ,@body)))
+
+(multiple-value-bind (a b) (get-decoded-time)
+  a)
+
+(mvbind1 (_ _ _ a) (get-decoded-time)
+  a)
