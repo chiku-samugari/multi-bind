@@ -21,7 +21,7 @@
     `(destructuring-bind ,lambda-list
        ,expression
        (declare (ignore ,@sealed-vars))
-       (progn ,@body))))
+       ,@body)))
 
 (dbind ((_ ((_ &rest column-names) (_ &rest data))) _)
        '((:RESULTS
