@@ -34,6 +34,8 @@
          (:ERRORS))
        (values column-names data))
 
+;;; 1 denotes 1st order lambda list. Since the lambda list is 1st order,
+;;; which means flat, it does not offers destructuring feature.
 (defmacro mvbind1 (low-line-lambda-list1 expression &body body)
   (multiple-value-bind (lambda-list sealed-vars)
     (proc-sealed-lambda-list '_ low-line-lambda-list1)
