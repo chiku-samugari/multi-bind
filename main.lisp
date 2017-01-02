@@ -103,31 +103,46 @@
      ,@body))
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (defun gen-dbind-stack (vars low-line-lambda-lists body)
-    (cond ((null vars) body)
-          ((eq (car vars) '_)
-           (gen-dbind-stack
-             (cdr vars) (cdr low-line-lambda-lists) body))
-          (t `((dbind ,(car low-line-lambda-lists) ,(car vars)
-                ,@(gen-dbind-stack
-                    (cdr vars) (cdr low-line-lambda-lists) body))))))
+  (defun parameter1-p (param)
+    (symbolp param))
 
-  (defun declare-used-p (low-line-lambda-list body)
+  (defun parameter2-p (param)
+    (listp param))
+
+  (defun gen-dbind-stack (params low-line-lambda-lists body)
+    (cond ((null params) body)
+          ((parameter1-p (car low-line-lambda-lists))
+           (gen-dbind-stack
+             (cdr params) (cdr low-line-lambda-lists) body))
+          (t `((dbind ,(car low-line-lambda-lists) ,(car params)
+                ,@(gen-dbind-stack
+                    (cdr params) (cdr low-line-lambda-lists) body))))))
+
+  (defun declare-used-p (body)
     (and (listp (car body))
-         (eq  (caar body)'declare)
-         (not (every #'symbolp low-line-lambda-list)))))
+         (eq (caar body) 'declare)))
+
+  (defun lambda-list1-p (destructuring-lambda-list)
+    (every #'parameter1-p destructuring-lambda-list))
+
+  ;;; Overwrite 2nd order parameters by gensyms.
+  (defun hide-parameter2 (sealed-lambda-list)
+    (loop :for param :in sealed-lambda-list
+          :for i = 0 :then (1+ i)
+          :collect (if (parameter1-p param)
+                     param
+                     (gensym[] "2ND-PARAMETER" i)))))
 
 (defmacro mvbind (low-line-lambda-list expression &body body)
-  (if (declare-used-p low-line-lambda-list body)
-    `(dbind ,low-line-lambda-list (multiple-value-list ,expression)
-       ,@body)
-    (let ((mvvars (loop :for var :in low-line-lambda-list
-                        :for i = 0 :then (1+ i)
-                        :collect (if (eq var '_)
-                                   '_
-                                   (gensym[] "MVVAR" i)))))
-      `(mvbind1 ,mvvars ,expression
-         ,@(gen-dbind-stack mvvars low-line-lambda-list body)))))
+  (cond ((lambda-list1-p low-line-lambda-list)
+         `(mvbind1 ,low-line-lambda-list ,expression
+            ,@body))
+        ((declare-used-p body)
+         `(dbind ,low-line-lambda-list (multiple-value-list ,expression)
+            ,@body))
+        (t (let ((mvvars (hide-parameter2 low-line-lambda-list)))
+             `(mvbind1 ,mvvars ,expression
+                ,@(gen-dbind-stack mvvars low-line-lambda-list body))))))
 
 (mvbind (_) (values 1)
   (print 'done))
@@ -147,3 +162,28 @@
 
 (mvbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
   (print b))
+
+(multiple-value-bind (a) (values 1) a)
+
+;;; Flat low-line lambda list
+(mvbind1 (a b) (values 1 2) a)
+(mvbind (a b) (values 1 2) a)
+(mvbind (a b) (values 1 2) (declare (ignore b)) a)
+(mvbind (a b) (values 1 2) (declare (ignore a)) b)
+
+(mvbind (a (b)) (values 1 (list 2)) a)
+(mvbind (a (b)) (values 1 (list 2)) b)
+(mvbind (a (b)) (values 1 (list 2)) (declare (ignore a)) b)
+
+;;; Short values
+(mvbind ((a) (b)) (values (list 1))) ; ERROR!
+
+(mvbind ((a) b) (values (list 1)) ; NOT error
+  a)
+
+(mvbind ((a) b) (values (list 1))
+  b)
+
+;;; Too many values
+(mvbind ((a) (b)) (values (list 1) (list 2) 3)
+  (print a))
