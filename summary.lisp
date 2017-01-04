@@ -1,5 +1,5 @@
 (defpackage :dbind
-  (:use :cl :papply :chiku.util))
+  (:use :cl :papply :chiku.util :azuki))
 
 (in-package :dbind)
 
@@ -40,13 +40,11 @@
 
 (seal-raindrops '_ '((_ (_ (_ &rest data))) _))
 
-;;; Low-line lambda list is a rainy lambda list whose raindrop is _, a
-;;; symbol whose name is composed of a single low-line (#\_).
 (defmacro dbind (low-line-lambda-list expression &body body)
   " A variation of DESTRUCTURING-BIND that adopts low-line lambda list
    instead of destructuring lambda list. Low-line lambda list is a rainy
-   lambda list whose raindrop is _, a symbol whose name is composed of a
-   single low-line (#\_).
+   lambda list whose raindrop is AZUKI:_, a symbol in AZUKI package and
+   whose name is composed of a single low-line (#\_).
     As well as DESTRUCTURING-BIND, DBIND recognizes symbols in
    LOW-LINE-LAMBDA-LIST as variables and binds them to the corresponding
    values in the tree structure returned from EXPRESSION. Raindrop
@@ -160,8 +158,9 @@
    returned value itself. 2nd order parameters are bound in the
    destructuring manner. Raindrop variables are DECLAREd as IGNORE and
    made unavailable in BODY.
-    Low-line lambda list is a rainy lambda list whose raindrop is _, a
-   symbol whose name is composed of a single low-line (#\_).
+    Low-line lambda list is a rainy lambda list whose raindrop is
+   AZUKI:_, a symbol in AZUKI package and whose name is composed of a
+   single low-line (#\_).
     In order to support DECLARE specified by users, the combination of a
    single DBIND and MULTIPLE-VALUE-LIST is used when DECLARE is used at
    the top of BODY. It does not indebted by the multiple value in that
