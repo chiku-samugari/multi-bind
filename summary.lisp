@@ -67,6 +67,24 @@
          (:ERRORS))
        (values column-names data))
 
+(dbind (a b (&key c d)) '(1 2 (:d 4 :c 3))
+  d)
+
+;; No error. &ALLOW-OTHER-KEYS works fine.
+(dbind ((&key a b) (&key c &allow-other-keys)) '((:a 1 :b 2) (:c 3 :d 4))
+  c)
+
+;; No error even if the value for keyword parameter is not supplied.
+(dbind ((&key a (b 2)) (&key c)) '((:a 1) (:c 3))
+  b)
+
+;; &WHOLE works fine, too.
+(dbind (&whole whole a b c) (iota 3)
+  (print a)
+  (print b)
+  (print c)
+  whole)
+
 ;;; 1 denotes 1st order lambda list. Since the lambda list is 1st order,
 ;;; which means flat, it does not offers destructuring feature.
 (defmacro mvbind1 (low-line-lambda-list1 expression &body body)
