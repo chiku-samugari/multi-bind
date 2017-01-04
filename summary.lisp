@@ -158,8 +158,8 @@
     (and (listp (car body))
          (eq (caar body) 'declare)))
 
-  (defun lambda-list1-p (destructuring-lambda-list)
-    (every #'parameter1-p destructuring-lambda-list))
+  (defun lambda-list1-p (rainy-lambda-list)
+    (every #'parameter1-p rainy-lambda-list))
 
   (defun cloak-parameter2 (low-line-lambda-list)
     "Cloaks 2nd order parameters by GENSYMs."
