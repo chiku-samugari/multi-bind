@@ -106,11 +106,9 @@
   (print c)
   whole)
 
-;;; 1 denotes 1st order lambda list. Since the lambda list is 1st order,
-;;; which means flat, it does not offers destructuring feature.
-(defmacro mvbind1 (low-line-lambda-list1 expression &body body)
+(defmacro mvbind (low-line-lambda-list1 expression &body body)
   " A variation of MULTIPLE-VALUE-BIND that adopts low-line lambda list1
-   instead of the list of variables. MVBIND1 DECLAREs raindrop variables
+   instead of the list of variables. MVBIND DECLAREs raindrop variables
    as IGNORE and thus, these variables are not available in BODY.
     Low-line lambda list1 is a Low-line lambda list which is composed of
    only symbols. tailing `1' means first order, a flat list of symbols."
@@ -121,40 +119,38 @@
        (declare (ignore ,@sealed-vars))
        ,@body)))
 
-(describe 'dbind)
-
 (multiple-value-bind (a b) (get-decoded-time)
   a)
 
-(mvbind1 (_ _ _ a) (get-decoded-time)
+(mvbind (_ _ _ a) (get-decoded-time)
   a)
 
-;;; About the combination of MVBIND1 and DBIND, be aware that only the
-;;; first level of the low-line lambda list is to catch the multiple
+;;; About the combination of MVBIND and DBIND, MBIND, be aware that only
+;;; the first level of the low-line lambda list is to catch the multiple
 ;;; values. There provided no method to return a list that includes
-;;; multiple values. From this reason, we can replace MVBIND1 but cannot
+;;; multiple values. From this reason, we can replace MVBIND but cannot
 ;;; replace DBIND.
 ;;;
 ;;;   (dbind (a _ x) expr body)
-;;;    == (mvbind ((a _ x)) expr body)
+;;;    == (mbind ((a _ x)) expr body)
 ;;;
 ;;; We can use the combination of DBIND and MULTIPLE-VALUE-LIST for the
 ;;; same purpose. It is disadvantageous for perfoance because a list is
 ;;; constructed. But if we wants to avoid to use MULTIPLE-VALUE-LIST,
 ;;; then we have to give up to specify DECLARE for the variables.
-(mvbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
+(mbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
   (print b))
 
-(mvbind (_ var1 _ var3) (values 'garbage '(0 1) 'garbage2 '(0))
+(mbind (_ var1 _ var3) (values 'garbage '(0 1) 'garbage2 '(0))
   (dbind (a _) var1
     (dbind (b) var3
       #+nil(declare (ignorable a)) ; Error!
       (print b))))
 
-(mvbind (_) (values 1)
+(mbind (_) (values 1)
   (print 'done))
 
-(mvbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
+(mbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
   (print b))
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
@@ -182,40 +178,14 @@
                      param
                      (gensym[] "2ND-PARAMETER" i)))))
 
-(defmacro mvbind (low-line-lambda-list expression &body body)
-  " A combination of MVBIND1 and DBIND. EXPRESSION returns multiple
-   values and each parameter of LOW-LINE-LAMBDA-LIST is bound to the
-   respective returned value. 1st order parameters are bound to the
-   returned value itself. 2nd order parameters are bound in the
-   destructuring manner. Raindrop variables are DECLAREd as IGNORE and
-   made unavailable in BODY. It is not allowed to give a symbol to
-   LOW-LINE-LAMBDA-LIST.
-    Low-line lambda list is a rainy lambda list whose raindrop is
-   AZUKI:_, a symbol in AZUKI package and whose name is composed of a
-   single low-line (#\_).
-    In order to support DECLARE specified by users, the combination of a
-   single DBIND and MULTIPLE-VALUE-LIST is used when DECLARE is used at
-   the top of BODY. It does not indebted by the multiple value in that
-   situation. MVBIND1 can be an alternative if the destructuring feature
-   is not needed."
-  (cond ((lambda-list1-p low-line-lambda-list)
-         `(mvbind1 ,low-line-lambda-list ,expression
-            ,@body))
-        ((declare-used-p body)
-         `(dbind ,low-line-lambda-list (multiple-value-list ,expression)
-            ,@body))
-        (t (let ((mvvars (cloak-parameter2 low-line-lambda-list)))
-             `(mvbind1 ,mvvars ,expression
-                ,@(gen-dbind-stack mvvars low-line-lambda-list body))))))
-
-(mvbind (_) (values 1)
+(mbind (_) (values 1)
   (print 'done))
 
-(mvbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
+(mbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
   a
   (print b))
 
-(mvbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
+(mbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
   (declare (ignore a))
   (print b))
 
@@ -224,32 +194,32 @@
   (DECLARE (IGNORE A))
   (PRINT B))
 
-(mvbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
+(mbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
   (print b))
 
 (multiple-value-bind (a) (values 1) a)
 
 ;;; Flat low-line lambda list
-(mvbind1 (a b) (values 1 2) a)
 (mvbind (a b) (values 1 2) a)
-(mvbind (a b) (values 1 2) (declare (ignore b)) a)
-(mvbind (a b) (values 1 2) (declare (ignore a)) b)
+(mbind (a b) (values 1 2) a)
+(mbind (a b) (values 1 2) (declare (ignore b)) a)
+(mbind (a b) (values 1 2) (declare (ignore a)) b)
 
-(mvbind (a (b)) (values 1 (list 2)) a)
-(mvbind (a (b)) (values 1 (list 2)) b)
-(mvbind (a (b)) (values 1 (list 2)) (declare (ignore a)) b)
+(mbind (a (b)) (values 1 (list 2)) a)
+(mbind (a (b)) (values 1 (list 2)) b)
+(mbind (a (b)) (values 1 (list 2)) (declare (ignore a)) b)
 
 ;;; Short values
-(mvbind ((a) (b)) (values (list 1))) ; ERROR!
+(mbind ((a) (b)) (values (list 1))) ; ERROR!
 
-(mvbind ((a) b) (values (list 1)) ; NOT error
+(mbind ((a) b) (values (list 1)) ; NOT error
   a)
 
-(mvbind ((a) b) (values (list 1))
+(mbind ((a) b) (values (list 1))
   b)
 
 ;;; Too many values
-(mvbind ((a) (b)) (values (list 1) (list 2) 3)
+(mbind ((a) (b)) (values (list 1) (list 2) 3)
   (print a))
 
 ;;; Explanation
@@ -258,21 +228,21 @@
 ;;; 1. Parameters vs Variables
 ;;; 2. 1st and 2nd order parameters
 ;;; 3. What is low-line lambda list?
-;;; 4. Description of DBIND and MVBIND
+;;; 4. Description of DBIND and MBIND
 ;;;
 ;;; Consideration
 ;;;
 ;;; 1. Should an error be raised when values are in short?
-;;;  First order parameters of MVBIND behaves same as the variables of
+;;;  First order parameters of MBIND behaves same as the variables of
 ;;; MULTIPLE-VALUE-BIND. Therefore, first order parameters should not
 ;;; raise an error even if the values are in short.
 ;;;
-;;;   (mvbind ((a) b) (values (list 1)))
+;;;   (mbind ((a) b) (values (list 1)))
 ;;;
 ;;; What should happen if no value is supplied to the 2nd order
 ;;; parameter?
 ;;;
-;;;   (mvbind ((a) (b)) (values (list 1)))
+;;;   (mbind ((a) (b)) (values (list 1)))
 ;;;
 ;;; 2nd order parameters behave same as the variables of
 ;;; DESTRUCTURING-BIND and it raises error in such case.
@@ -284,39 +254,22 @@
 ;;; 2. Should an error be raised when values are too much?
 ;;;
 ;;;  No. The reason is same to the Consideration 1. All multiple values
-;;; are caught by MULTIPLE-VALUE-BIND (through MVBIND1 and each caught
+;;; are caught by MULTIPLE-VALUE-BIND (through MVBIND and each caught
 ;;; value is destructed by DBIND if needed -- if the parameter is 2nd
-;;; order for short.
-;;;
-;;; 3. LET1 style binding in DBIND ... should it be supported?
-;;;  Scheme has a variation of LET that is dedicated to bind a single
-;;; value.
-;;;
-;;;    (let1 x 10 (print x))
-;;;
-;;; It is easy enough to support this style of binding in DBIND. But it
-;;; does not destruct something. Principally, one operation should
-;;; provide one feature. DBIND com bines destructuring and handy
-;;; expression to skip some values, MVBIND combines DBIND with
-;;; MULTIPLE-VALUE-BIND.
+;;; order for short).
 
-;;; UBIND stands for Universal BIND
-;;; MBIND stands for MultiBIND
-;;; Fmm... still not enough to call it Universal. And another problem
-;;; raised is that I have to revise the definition of Rainy lambda list
-;;; again.
 (defmacro mbind (low-line-lambda-list expression &body body)
   (cond ((parameter1-p low-line-lambda-list)
          `(let ((,low-line-lambda-list ,expression))
             ,@body))
         ((lambda-list1-p low-line-lambda-list)
-         `(mvbind1 ,low-line-lambda-list ,expression
+         `(mvbind ,low-line-lambda-list ,expression
             ,@body))
         ((declare-used-p body)
          `(dbind ,low-line-lambda-list (multiple-value-list ,expression)
             ,@body))
         (t (let ((mvvars (cloak-parameter2 low-line-lambda-list)))
-             `(mvbind1 ,mvvars ,expression
+             `(mvbind ,mvvars ,expression
                 ,@(gen-dbind-stack mvvars low-line-lambda-list body))))))
 
 (mbind a 1 a)
