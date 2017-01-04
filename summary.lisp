@@ -150,9 +150,6 @@
 (mbind (_) (values 1)
   (print 'done))
 
-(mbind (_ (a _) _ (b)) (values 'garbage '(0 1) 'garbage2 '(2))
-  (print b))
-
 (eval-when (:load-toplevel :compile-toplevel :execute)
   (defun gen-dbind-stack (params low-line-lambda-lists body)
     (cond ((null params) body)
@@ -259,6 +256,23 @@
 ;;; order for short).
 
 (defmacro mbind (low-line-lambda-list expression &body body)
+  " MBIND, which stands for Multi Bind, is a combination of DBIND and
+   MVBIND. EXPRESSION returns multiple values and each parameter of
+   LOW-LINE-LAMBDA-LIST is bound to the respective returned value. 1st
+   order parameters are bound to the returned value itself. 2nd order
+   parameters are bound in the destructuring manner. In the case that
+   LOW-LINE-LAMBDA-LIST is a symbol, then the variable whose name is the
+   symbol is bound to the first value returned from EXPRESSION. Raindrop
+   variables are DECLAREd as IGNORE and made unavailable in BODY. BODY
+   form is evaluated under this variable bindings.
+    Low-line lambda list is a rainy lambda list whose raindrop is
+   AZUKI:_, a symbol in AZUKI package and whose name is composed of a
+   single low-line (#\_).
+    In order to support DECLARE specified by users, the combination of a
+   single DBIND and MULTIPLE-VALUE-LIST is used when DECLARE is used at
+   the top of BODY. It does not indebted by the multiple value in that
+   situation. MVBIND can be an alternative if the destructuring feature
+   is not needed."
   (cond ((parameter1-p low-line-lambda-list)
          `(let ((,low-line-lambda-list ,expression))
             ,@body))
@@ -279,6 +293,10 @@
   a)
 
 (mbind (a b c) (list 1 2 3)
+  (declare (ignorable b c))
+  a)
+
+(dbind (a b c) (list 1 2 3)
   (declare (ignorable b c))
   a)
 
