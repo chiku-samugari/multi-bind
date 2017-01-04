@@ -3,19 +3,21 @@
 
 (in-package :dbind)
 
-;;; Rainy lambda list is an extended lambda list whose parameters are
-;;; rainy parameters. A rainy parameter is either a 1st order parameter
-;;; or a 2nd order parameter. 1st order parameter is a symbol, while a
-;;; 2nd order parameter is a multi level list of symbols (i.e. a tree of
-;;; symbols implemented by lists). Except one special symbol called
-;;; ``raindrop'', no symbol is allowed to appear multiple times in a
-;;; rainy lambda list. Which symbol is the raindrop is decided in the
-;;; application of Rainy lambda list.
+;;; Rainy lambda list is either a symbol or an extended lambda list,
+;;; each of parameters is either a 1st order parameter or a 2nd order
+;;; parameter. A 1st order parameter is a symbol, and a 2nd order
+;;; parameter is a list of rainy-lambda-lists. Be aware that lambda
+;;; keywords such as &REST is NOT parameters of an extended lamda list.
+;;; They are lambda keywords.
+;;;  Except special symbols called ``raindrop'', no symbol is allowed to
+;;; appear multiple times in a rainy lambda list. Which symbols are the
+;;; raindrop is decided in the application of Rainy lambda list.
 ;;;  A rainy lambda list is, from structural viewpoint, a variation of
-;;; destructuring lambda list. These differs in 2 aspects. First, it is
-;;; not allowed to use a single dot (.) within rainy lambda list. &REST
-;;; works fine to express rest parameters. Second, one special symbol,
-;;; raindrop, is allowed to appear multiple times. Symbols appear in
+;;; destructuring lambda list. These 2 extended lambda lists accepts
+;;; same lambda keywords (&OPTIONAL, &REST, &KEY, &ALLOW-OTHER-KEYS, and
+;;; &WHOLE). These differ in 2 aspects. First, it is not allowed to use
+;;; a single dot (.) within rainy lambda list. Second, special symbols,
+;;; raindrop, are allowed to appear multiple times. Parameters of a
 ;;; rainy lambda list are used as variables in some applications.
 ;;; Variables named by raindrops are called ``raindrop variables''.
 ;;;
@@ -40,6 +42,18 @@
 
 (seal-raindrops '_ '((_ (_ (_ &rest data))) _))
 
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (defun parameter1-p (param)
+    "Checks if PARAM is a 1st order parameter."
+    (symbolp param)))
+
+;;; Using a single symbol to LOW-LINE-LAMBDA-LIST is understood as
+;;; &WHOLE parmeter.
+;;;
+;;;  (dbind a (list 1 2 3) a)
+;;;    == (destructuring-bind (&whole a) (list 1 2 3))
+;;;
+;;; It justifies to made acceptable the single symbol in DBIND.
 (defmacro dbind (low-line-lambda-list expression &body body)
   " A variation of DESTRUCTURING-BIND that adopts low-line lambda list
    instead of destructuring lambda list. Low-line lambda list is a rainy
@@ -47,14 +61,21 @@
    whose name is composed of a single low-line (#\_).
     As well as DESTRUCTURING-BIND, DBIND recognizes symbols in
    LOW-LINE-LAMBDA-LIST as variables and binds them to the corresponding
-   values in the tree structure returned from EXPRESSION. Raindrop
-   variables are DECLAREd as IGNORE (i.e. they are unavailable in BODY)."
-  (multiple-value-bind (lambda-list sealed-vars)
-    (seal-raindrops '_ low-line-lambda-list)
-    `(destructuring-bind ,lambda-list
-       ,expression
-       (declare (ignore ,@sealed-vars))
-       ,@body)))
+   values in the tree structure returned from EXPRESSION. In addition,
+   LOW-LINE-LAMBDA-LIST can be a single symbol and in that case a
+   variable that is named by the symbol is bound to the whole value
+   returned from EXPRESSION. Raindrop variables are DECLAREd as IGNORE
+   (i.e. they are unavailable in BODY). BODY form  is evaluated under
+   this variable bindings."
+  (if (parameter1-p low-line-lambda-list)
+    `(let ((,low-line-lambda-list ,expression))
+       ,@body)
+    (multiple-value-bind (lambda-list sealed-vars)
+      (seal-raindrops '_ low-line-lambda-list)
+      `(destructuring-bind ,lambda-list
+         ,expression
+         (declare (ignore ,@sealed-vars))
+         ,@body))))
 
 (dbind ((_ ((_ &rest column-names) (_ &rest data))) _)
        '((:RESULTS
@@ -137,14 +158,6 @@
   (print b))
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (defun parameter1-p (param)
-    "Checks if PARAM is a 1st order parameter."
-    (symbolp param))
-
-  (defun parameter2-p (param)
-    "Checks if PARAM is a 2nd order parameter."
-    (listp param))
-
   (defun gen-dbind-stack (params low-line-lambda-lists body)
     (cond ((null params) body)
           ((parameter1-p (car low-line-lambda-lists))
@@ -175,7 +188,8 @@
    respective returned value. 1st order parameters are bound to the
    returned value itself. 2nd order parameters are bound in the
    destructuring manner. Raindrop variables are DECLAREd as IGNORE and
-   made unavailable in BODY.
+   made unavailable in BODY. It is not allowed to give a symbol to
+   LOW-LINE-LAMBDA-LIST.
     Low-line lambda list is a rainy lambda list whose raindrop is
    AZUKI:_, a symbol in AZUKI package and whose name is composed of a
    single low-line (#\_).
@@ -287,8 +301,10 @@
 ;;; MULTIPLE-VALUE-BIND.
 
 ;;; UBIND stands for Universal BIND
-;;; MBIND stands for Multiple BIND
-;;; Fmm... still not enough to call it Universal.
+;;; MBIND stands for MultiBIND
+;;; Fmm... still not enough to call it Universal. And another problem
+;;; raised is that I have to revise the definition of Rainy lambda list
+;;; again.
 (defmacro mbind (low-line-lambda-list expression &body body)
   (cond ((parameter1-p low-line-lambda-list)
          `(let ((,low-line-lambda-list ,expression))
